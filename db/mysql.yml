@@ -1,0 +1,73 @@
+Parameters:
+  dbId:
+    Default: achdb
+    Description: DB instance id
+    Type: String
+  dbSecurityGroup:
+    Description: DB security group
+    Type: String
+  dbSubnet1:
+    Description: DB private subnet 1
+    Type: String
+  dbSubnet2:
+    Description: DB private subnet 2
+    Type: String
+  envTypeValue:
+    Description: VPC type (prod, QA, staging,...)
+    Type: String
+  masterPassword:
+    Description: Master password
+    MinLength: 8
+    Type: String
+  masterUser:
+    Default: achdbuser
+    Description: Master user
+    MinLength: 8
+    Type: String
+Resources:
+  dbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: DB subnet group
+      SubnetIds: [!Ref dbSubnet1 , !Ref dbSubnet2]
+  mysqlParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties: 
+      Description: ach-specific mysql configuraion parameters
+      Family: mysql5.6
+      Parameters:
+        connect_timeout: 3
+        general_log: 0
+        log_bin_trust_function_creators: 1
+        max_allowed_packet: 52428800
+      Tags:
+        - Key : Name
+          Value : ach-mysql-parameter-group
+  db:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    Properties:
+      AllocatedStorage: 100
+      DBInstanceClass: db.m3.large
+      DBInstanceIdentifier: !Ref dbId
+      DBParameterGroupName: !Ref mysqlParameterGroup
+      DBSubnetGroupName: !Ref dbSubnetGroup
+      Engine: MySQL
+      EngineVersion: 5.6.23
+      MasterUserPassword: !Ref masterPassword
+      MasterUsername: !Ref masterUser
+      MultiAZ: true
+      PreferredBackupWindow: 05:00-05:30
+      PreferredMaintenanceWindow: mon:04:00-mon:04:30
+      PubliclyAccessible: false
+      StorageEncrypted: true
+      StorageType: gp2
+      Tags:
+      - Key: Name
+        Value: !Sub db-${AWS::StackName}
+      VPCSecurityGroups: [!Ref dbSecurityGroup]
+    DependsOn: [dbSubnetGroup, mysqlParameterGroup] 
+Outputs:
+  dbId:
+    Value:
+      Ref: db      
