@@ -67,6 +67,15 @@ Resources:
         Value: !Sub db-${AWS::StackName}
       VPCSecurityGroups: [!Ref dbSecurityGroup]
     DependsOn: [dbSubnetGroup, mysqlParameterGroup] 
+  readReplica01:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      SourceDBInstanceIdentifier: !Ref db
+      DBInstanceIdentifier: !Sub rr${dbId}
+      DBInstanceClass: db.m3.large
+      Tags:
+      - Key: Name
+        Value: !Sub read-replica-1-${AWS::StackName}
 Outputs:
   dbId:
     Value:
