@@ -1,0 +1,162 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  vpcCidrBase:
+    Type: String
+    Description: IP CIDR base for VPC
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})
+    MinLength: 7
+    ConstraintDescription: Must be a valid IP CIDR range of the form x.x.x.x
+    MaxLength: 15
+    Default: 10.0.0.0
+  vpcCidrNetmask:
+    Type: String
+    Description: IP CIDR netmask for VPC
+    AllowedPattern: \d{2}
+    MinLength: 2
+    ConstraintDescription: Must be a valid IP CIDR range of the form dd e.g. 16 (16...28)
+    MaxLength: 2
+    Default: 16
+  public1Cidr:
+    Type: String
+    Description: IP CIDR range for public subnet 1
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{2})
+    MinLength: 9
+    ConstraintDescription: Must be a valid IP CIDR range of the form x.x.x.x/x.
+    MaxLength: 18
+    Default: 10.0.0.0/24
+  private1Cidr:
+    Type: String
+    Description: IP CIDR range for private subnet 1
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{2})
+    MinLength: 9
+    ConstraintDescription: Must be a valid IP CIDR range of the form x.x.x.x/x.
+    MaxLength: 18
+    Default: 10.0.1.0/24
+  public2Cidr:
+    Type: String
+    Description: IP CIDR range for public subnet 2
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{2})
+    MinLength: 9
+    ConstraintDescription: Must be a valid IP CIDR range of the form x.x.x.x/x.
+    MaxLength: 18
+    Default: 10.0.2.0/24
+  private2Cidr:
+    Type: String
+    Description: IP CIDR range for private subnet 2
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    MinLength: 9
+    ConstraintDescription: Must be a valid IP CIDR range of the form x.x.x.x/x.
+    MaxLength: 18
+    Default: 10.0.3.0/24
+Resources:
+  vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Sub ${vpcCidrBase}/${vpcCidrNetmask}
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+      - Key: Name
+        Value: !Sub vpc-${AWS::StackName}
+  s3Endpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref vpc
+      RouteTableIds: [!Ref public1RouteTable, !Ref public2RouteTable]
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Action: "*"
+          Resource: "*"
+          Effect: Allow
+          Principal: "*"
+  igw:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub igw-${AWS::StackName}
+  vpcGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    DependsOn: [vpc, igw]
+    Properties:
+      InternetGatewayId: !Ref igw
+      VpcId: !Ref vpc
+
+  public1Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref vpc
+      CidrBlock: !Ref public1Cidr
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      Tags:
+      - Key: Name
+        Value: !Sub public1-subnet-${AWS::StackName}
+    DependsOn: vpc
+
+  public1RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref vpc
+      Tags:
+      - Key: Name
+        Value: !Sub public1-rt-${AWS::StackName}
+
+  public2Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref vpc
+      CidrBlock: !Ref public2Cidr
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      Tags:
+      - Key: Name
+        Value: !Sub public2-subnet-${AWS::StackName}
+    DependsOn: vpc
+
+  public2RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref vpc
+      Tags:
+      - Key: Name
+        Value: !Sub public2-rt-${AWS::StackName}
+
+
+  private1Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref vpc
+      CidrBlock: !Ref private1Cidr
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      Tags:
+      - Key: Name
+        Value: !Sub private1-subnet-${AWS::StackName}
+    DependsOn: vpc
+
+  private2Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref vpc
+      CidrBlock: !Ref private2Cidr
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      Tags:
+      - Key: Name
+        Value: !Sub private2-subnet-${AWS::StackName}
+    DependsOn: vpc
+
+Outputs:
+  vpcId:
+    Value: !Ref vpc
+  az1:
+    Value: !GetAtt public1Subnet.AvailabilityZone
+  az2:
+    Value: !GetAtt public2Subnet.AvailabilityZone
+  public1SubnetId:
+    Value: !Ref public1Subnet
+  private1SubnetId:
+    Value: !Ref private1Subnet
+  public2SubnetId:
+    Value: !Ref public2Subnet
+  private2SubnetId: 
+    Value: !Ref private2Subnet
